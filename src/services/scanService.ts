@@ -22,7 +22,7 @@ export const scanService = {
       formData.append('privacyLevel', params.privacyLevel);
     }
 
-    const response = await api.post<UploadResponse>('/upload/', formData, {
+    const response = await api.post<UploadResponse>('upload/', formData, {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
@@ -35,7 +35,7 @@ export const scanService = {
    * Polling real-time background analysis progress
    */
   async getScanStatus(scanId: string): Promise<ScanStatusResponse> {
-    const response = await api.get<ScanStatusResponse>(`/status/${scanId}`);
+    const response = await api.get<ScanStatusResponse>(`status/${scanId}`);
     return response.data;
   },
 
@@ -44,7 +44,7 @@ export const scanService = {
    * Fetches full privacy report JSON
    */
   async getReportById(scanId: string): Promise<PrivacyReport> {
-    const response = await api.get<PrivacyReport>(`/report/${scanId}`);
+    const response = await api.get<PrivacyReport>(`report/${scanId}`);
     return response.data;
   },
 
@@ -53,7 +53,7 @@ export const scanService = {
    * Triggers auto-redaction engine
    */
   async triggerRedact(scanId: string, mode: string = 'blur'): Promise<RedactionResponse> {
-    const response = await api.post<RedactionResponse>(`/redact/${scanId}`, { mode });
+    const response = await api.post<RedactionResponse>(`redact/${scanId}`, { mode });
     return response.data;
   },
 
@@ -62,7 +62,7 @@ export const scanService = {
    * Polling background redaction progress
    */
   async getRedactionStatus(scanId: string): Promise<ScanStatusResponse> {
-    const response = await api.get<ScanStatusResponse>(`/redaction-status/${scanId}`);
+    const response = await api.get<ScanStatusResponse>(`redaction-status/${scanId}`);
     return response.data;
   },
 
@@ -71,7 +71,7 @@ export const scanService = {
    * Fetches Before vs After image URLs and score metrics
    */
   async getComparison(scanId: string): Promise<ComparisonResponse> {
-    const response = await api.get<ComparisonResponse>(`/comparison/${scanId}`);
+    const response = await api.get<ComparisonResponse>(`comparison/${scanId}`);
     return response.data;
   },
 
@@ -88,7 +88,7 @@ export const scanService = {
    */
   async getHistory(): Promise<ScanHistoryItem[]> {
     try {
-      const response = await api.get<ScanHistoryItem[]>('/history/');
+      const response = await api.get<ScanHistoryItem[]>('history/');
       return response.data;
     } catch {
       return [];
@@ -100,7 +100,7 @@ export const scanService = {
    */
   async deleteHistoryItem(scanId: string): Promise<void> {
     try {
-      await api.delete(`/history/${scanId}`);
+      await api.delete(`history/${scanId}`);
     } catch (err) {
       console.warn('Failed to delete history item on server:', err);
     }
@@ -111,7 +111,7 @@ export const scanService = {
    */
   async clearAllHistory(): Promise<void> {
     try {
-      await api.delete('/history/');
+      await api.delete('history/');
     } catch (err) {
       console.warn('Failed to clear history on server:', err);
     }
@@ -122,7 +122,7 @@ export const scanService = {
    * Confirms or dismisses a threat finding (false positive override)
    */
   async postThreatAction(scanId: string, threatId: string, action: 'confirm' | 'dismiss'): Promise<any> {
-    const response = await api.post(`/report/${scanId}/action`, { threatId, action });
+    const response = await api.post(`report/${scanId}/action`, { threatId, action });
     return response.data;
   },
 };
