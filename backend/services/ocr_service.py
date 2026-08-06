@@ -682,7 +682,7 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
     # Target scaling dim (lower for Quick Scan)
     target_dim = 1200.0 if quick_mode else 1920.0
     scale = target_dim / float(max(h, w))
-    if scale > 1.0 or (scale < 1.0 and not quick_mode):
+    if scale < 1.0:
         img_scaled = cv2.resize(img, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
     else:
         scale = 1.0

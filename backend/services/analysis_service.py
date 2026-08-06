@@ -64,7 +64,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
         h, w = img.shape[:2]
         target_dim = 1200.0 if is_quick_mode else 1920.0
         scale = target_dim / float(max(h, w))
-        if scale > 1.0 or (scale < 1.0 and not is_quick_mode):
+        if scale < 1.0:
             img_scaled = cv2.resize(img, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
         else:
             scale = 1.0
