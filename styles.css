@@ -1,0 +1,104 @@
+/* Styles for AI Privacy Risk Simulator - Forest Precision Theme */
+
+body {
+  background-color: #121411;
+  color: #e3e3de;
+  font-family: 'Manrope', sans-serif;
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+/* Material Symbols settings */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+  vertical-align: middle;
+}
+
+/* Glassmorphism & Tonal Layers */
+.tonal-layer-1 {
+  background-color: #1e201d;
+}
+
+.tonal-layer-2 {
+  background-color: #292a27;
+}
+
+.glass-panel {
+  background: rgba(30, 32, 29, 0.65);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(180, 204, 187, 0.12);
+}
+
+/* Scan line animation for Live Scan HUD */
+.scan-line {
+  height: 2px;
+  background: linear-gradient(to right, transparent, #b4ccbb, #e7beae, transparent);
+  position: absolute;
+  width: 100%;
+  top: 0;
+  left: 0;
+  animation: scan-move 3.5s linear infinite;
+  z-index: 20;
+}
+
+@keyframes scan-move {
+  0% { top: 0%; opacity: 0.9; }
+  50% { opacity: 1; }
+  100% { top: 100%; opacity: 0.2; }
+}
+
+/* Custom Scrollbars */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(13, 15, 12, 0.6);
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #424843;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #8c928c;
+}
+
+/* Active Sidebar Navigation state */
+.sidebar-item.active {
+  color: #b4ccbb;
+  background-color: rgba(26, 47, 35, 0.6);
+  border-left: 3px solid #b4ccbb;
+  font-weight: 600;
+}
+
+/* Active Top Navigation button state */
+.nav-btn.active {
+  color: #b4ccbb;
+  font-weight: 700;
+  border-bottom: 2px solid #b4ccbb;
+}
+
+/* Filter pill active state */
+.history-pill.active {
+  background-color: #1a2f23;
+  color: #809787;
+  border: 1px solid rgba(180, 204, 187, 0.3);
+}
+
+/* Micro-interaction hover cards */
+.view-panel {
+  animation: fadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

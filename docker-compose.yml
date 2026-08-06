@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./backend/logs:/app/logs
+      - ./backend/scans.db:/app/scans.db
+    env_file:
+      - ./backend/.env
+    restart: unless-stopped

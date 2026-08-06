@@ -1,0 +1,37 @@
+# Node dependencies
+node_modules/
+dist/
+build/
+.tsbuildinfo
+
+# Python virtual environment & cache
+backend/venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.pytest/
+
+# Local databases and instances
+backend/instance/
+backend/database.db
+backend/privacy_simulator.db
+*.db
+
+# Scans, logs and uploads
+backend/uploads/
+backend/logs/
+logs/
+uploads/
+
+# Environment files
+.env
+backend/.env
+.env.local
+.env.*.local
+
+# Scratch and test files
+scratch/
+artifacts/
+*.webp
+*.mp4
+*.webm

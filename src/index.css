@@ -1,0 +1,154 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Hanken+Grotesk:wght@100..900&family=Manrope:wght@100..900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-on-surface font-sans min-h-screen overflow-x-hidden antialiased;
+    scroll-behavior: smooth;
+  }
+  * {
+    box-sizing: border-box;
+  }
+}
+
+@layer components {
+  .material-symbols-outlined {
+    font-family: 'Material Symbols Outlined';
+    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    vertical-align: middle;
+    line-height: 1;
+    font-size: 24px;
+  }
+
+  .tonal-layer-1 {
+    background-color: #1e201d;
+  }
+  .tonal-layer-2 {
+    background-color: #292a27;
+  }
+
+  .glass-panel {
+    background: rgba(30, 32, 29, 0.75);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(180, 204, 187, 0.12);
+  }
+
+  .card {
+    @apply bg-surface-container border border-outline-variant/20 rounded-xl p-6;
+  }
+
+  .btn-primary {
+    @apply bg-secondary text-on-secondary px-8 py-3 font-bold uppercase tracking-widest text-sm rounded-lg hover:brightness-110 active:scale-95 transition-all shadow-lg;
+  }
+
+  .btn-outline {
+    @apply border border-secondary/40 text-secondary px-8 py-3 font-bold uppercase tracking-widest text-sm rounded-lg hover:bg-secondary/10 active:scale-95 transition-all;
+  }
+
+  .nav-link {
+    @apply py-1 text-sm text-on-surface-variant hover:text-primary transition-colors;
+  }
+  .nav-link-active {
+    @apply text-primary font-bold border-b-2 border-primary;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider;
+  }
+  .badge-safe    { @apply bg-primary-container text-primary; }
+  .badge-medium  { @apply bg-tertiary-container text-tertiary; }
+  .badge-high    { @apply bg-error-container/40 text-error; }
+  .badge-critical { @apply bg-error text-on-error; }
+}
+
+@layer utilities {
+  .scan-line {
+    height: 2px;
+    background: linear-gradient(to right, transparent, #b4ccbb, #e7beae, transparent);
+    position: absolute;
+    width: 100%;
+    top: 0;
+    left: 0;
+    animation: scan-move 3.5s linear infinite;
+    z-index: 20;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar       { width: 5px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: rgba(13, 15, 12, 0.6); }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #424843; border-radius: 4px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #8c928c; }
+}
+
+@keyframes scan-move {
+  0%   { top: 0%;   opacity: 0.9; }
+  50%  {             opacity: 1;   }
+  100% { top: 100%; opacity: 0.2; }
+}
+
+/* Light Mode Theme Overrides */
+html:not(.dark) {
+  color-scheme: light !important;
+}
+
+html:not(.dark) body {
+  background-color: #f2f5f3 !important;
+  color: #18201a !important;
+}
+
+html:not(.dark) header {
+  background-color: rgba(242, 245, 243, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
+
+html:not(.dark) .card,
+html:not(.dark) [class*="bg-surface-container"],
+html:not(.dark) [class*="bg-surface-"] {
+  background-color: #ffffff !important;
+  color: #18201a !important;
+  border-color: rgba(0, 0, 0, 0.12) !important;
+}
+
+html:not(.dark) .text-on-surface {
+  color: #121814 !important;
+}
+
+html:not(.dark) .text-on-surface-variant {
+  color: #424a44 !important;
+}
+
+html:not(.dark) .btn-primary {
+  background-color: #2b4534 !important;
+  color: #ffffff !important;
+}
+
+html:not(.dark) .btn-outline {
+  border-color: #2b4534 !important;
+  color: #2b4534 !important;
+}
+
+/* High Contrast Mode Overrides */
+html.high-contrast * {
+  font-weight: 600 !important;
+}
+
+html.high-contrast .card,
+html.high-contrast input,
+html.high-contrast select,
+html.high-contrast button {
+  border-width: 2px !important;
+  border-color: #ffffff !important;
+}
+
+html:not(.dark).high-contrast .card,
+html:not(.dark).high-contrast input,
+html:not(.dark).high-contrast select,
+html:not(.dark).high-contrast button {
+  border-color: #000000 !important;
+}
