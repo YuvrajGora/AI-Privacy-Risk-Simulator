@@ -16,6 +16,9 @@ def get_ocr_reader():
     global _ocr_reader
     if _ocr_reader is None:
         try:
+            import torch
+            torch.set_num_threads(1)
+            torch.set_num_interop_threads(1)
             import easyocr
             logger.info("Initializing EasyOCR singleton reader ['en'] with verbose=False...")
             _ocr_reader = easyocr.Reader(['en'], gpu=False, verbose=False)
