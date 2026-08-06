@@ -319,7 +319,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
                 logger.info(qr_log)
             return res
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
             futures = {
                 executor.submit(_run_meta): "Metadata Scan",
                 executor.submit(_run_face): "Face Detection",
