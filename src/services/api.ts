@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Base Axios instance configured for Flask backend
 export const api = axios.create({
-  baseURL: (import.meta as any).env?.VITE_API_BASE_URL || '/api/v1',
+  baseURL: import.meta.env.VITE_API_BASE_URL || '/api/v1',
   headers: {
     'Content-Type': 'application/json',
   },

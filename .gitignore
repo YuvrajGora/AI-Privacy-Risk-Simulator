@@ -2,7 +2,7 @@
 node_modules/
 dist/
 build/
-.tsbuildinfo
+*.tsbuildinfo
 
 # Python virtual environment & cache
 backend/venv/
