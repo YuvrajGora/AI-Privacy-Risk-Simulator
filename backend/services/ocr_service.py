@@ -680,7 +680,8 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
     h, w = img.shape[:2]
 
     # Target scaling dim (lower for Quick Scan)
-    target_dim = 1200.0 if quick_mode else 1920.0
+    # Reduce image size to lower memory usage
+    target_dim = 1200.0
     scale = target_dim / float(max(h, w))
     if scale < 1.0:
         img_scaled = cv2.resize(img, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
@@ -747,7 +748,7 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
     merged_blocks = []
 
     # Configured threshold for high-confidence text
-    OCR_CONFIDENCE_THRESHOLD = 0.50
+    OCR_CONFIDENCE_THRESHOLD = 0.35
 
     if reader and reader is not False and unique_proposals:
         t0_ocr = time.time()
@@ -823,7 +824,7 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
                 avg_conf = np.mean([b["confidence"] for b in variant_blocks]) if variant_blocks else 0.0
                 skip_sharpened = len(variant_blocks) > 0 and avg_conf >= OCR_CONFIDENCE_THRESHOLD
 
-                if not quick_mode and not skip_sharpened:
+                if False:
                     # 2. Run "sharpened" variant
                     t_start = time.time()
                     t_start_str = datetime.utcnow().isoformat() + "Z"
@@ -884,11 +885,11 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
         # Execute parallel OCR crop workers
         futures = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            for idx, box in enumerate(unique_proposals[:15]): # Limit to top 15 proposals max
+            for idx, box in enumerate(unique_proposals[:5]): # Limit to top 15 proposals max
                 futures.append(executor.submit(ocr_crop_worker, (idx, box)))
 
             # Hard timeout of 130.0 seconds max!
-            done, not_done = concurrent.futures.wait(futures, timeout=130.0)
+            done, not_done = concurrent.futures.wait(futures, timeout=45.0)
 
             for f in done:
                 try:
