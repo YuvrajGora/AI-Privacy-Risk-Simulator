@@ -993,6 +993,7 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
         )
         # Safe encoding print
         try:
+            pass
             # print(trace_log)
         except UnicodeEncodeError:
             print(trace_log.encode('ascii', 'ignore').decode('ascii'))
