@@ -816,8 +816,8 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
                     f"Text Details: {[b['text'] for b in variant_blocks]}\n"
                     "--------------------------------------------------"
                 )
-                print(crop_log)
-                logger.info(crop_log)
+                # print(crop_log)
+                # logger.info(crop_log)
                 local_blocks.extend(variant_blocks)
 
                 # Check if we can skip the sharpened pass
@@ -873,8 +873,8 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
                         f"Text Details: {[b['text'] for b in variant_blocks_sharp]}\n"
                         "--------------------------------------------------"
                     )
-                    print(crop_log_sharp)
-                    logger.info(crop_log_sharp)
+                    # print(crop_log_sharp)
+                    # logger.info(crop_log_sharp)
                     local_blocks.extend(variant_blocks_sharp)
                 elif skip_sharpened:
                     logger.info(f"Skipping sharpened OCR pass: original avg confidence ({avg_conf:.2f}) >= threshold ({OCR_CONFIDENCE_THRESHOLD})")
@@ -993,10 +993,10 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
         )
         # Safe encoding print
         try:
-            print(trace_log)
+            # print(trace_log)
         except UnicodeEncodeError:
             print(trace_log.encode('ascii', 'ignore').decode('ascii'))
-        logger.info(trace_log)
+        # logger.info(trace_log)
 
         # Phone Number
         for ph in set(PHONE_PATTERN.findall(txt)):
