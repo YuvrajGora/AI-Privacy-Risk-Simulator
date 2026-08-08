@@ -192,5 +192,6 @@ app = create_app()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.logger.info(f"Starting AI Privacy Risk Simulator backend on port {port}...")
-    app.run(host="0.0.0.0", port=port, debug=True)
+    is_debug = os.environ.get("FLASK_ENV") == "development" or os.environ.get("FLASK_DEBUG", "0") == "1"
+    app.logger.info(f"Starting AI Privacy Risk Simulator backend on port {port} (debug={is_debug})...")
+    app.run(host="0.0.0.0", port=port, debug=is_debug, use_reloader=is_debug)

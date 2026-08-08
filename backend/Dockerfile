@@ -16,8 +16,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Pre-download EasyOCR models
-RUN python -c "import easyocr; easyocr.Reader(['en','hi'], gpu=False)"
+# Pre-download models to a fixed directory in the container
+RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False, model_storage_directory='/app/easyocr_models')"
 
 # Copy the rest of the application
 COPY . .

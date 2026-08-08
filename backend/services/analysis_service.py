@@ -319,40 +319,24 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
                 logger.info(qr_log)
             return res
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            futures = {
-                executor.submit(_run_meta): "Metadata Scan",
-                executor.submit(_run_face): "Face Detection",
-                executor.submit(_run_qr): "QR Analysis",
-                executor.submit(_run_ocr): "OCR Scan"
-            }
+        # Execute stages sequentially to save thread scheduling memory and control peak memory usage
+        if job_mgr and job_mgr.is_cancelled(scan_id): return
+        metadata_res = _run_meta()
+        update_scan_status(app, scan_id, "processing", 20, "Metadata Scan Complete")
 
-            completed_stages = set()
-            for fut in concurrent.futures.as_completed(futures):
-                stage_name = futures[fut]
-                completed_stages.add(stage_name)
+        if job_mgr and job_mgr.is_cancelled(scan_id): return
+        face_res = _run_face()
+        update_scan_status(app, scan_id, "processing", 40, "Face Detection Complete")
 
-                # Fetch worker result
-                res = fut.result()
-                if stage_name == "Metadata Scan":
-                    metadata_res = res
-                elif stage_name == "Face Detection":
-                    face_res = res
-                elif stage_name == "QR Analysis":
-                    qr_res = res
-                elif stage_name == "OCR Scan":
-                    ocr_res = res
+        if job_mgr and job_mgr.is_cancelled(scan_id): return
+        qr_res = _run_qr()
+        update_scan_status(app, scan_id, "processing", 60, "QR Analysis Complete")
 
-                # Progress updates based on completed stages
-                progress = 15
-                if "Metadata Scan" in completed_stages: progress = max(progress, 20)
-                if "Face Detection" in completed_stages: progress = max(progress, 40)
-                if "QR Analysis" in completed_stages: progress = max(progress, 60)
-                if "OCR Scan" in completed_stages: progress = max(progress, 80)
+        if job_mgr and job_mgr.is_cancelled(scan_id): return
+        ocr_res = _run_ocr()
+        update_scan_status(app, scan_id, "processing", 80, "OCR Scan Complete")
 
-                update_scan_status(app, scan_id, "processing", progress, f"{stage_name} Complete")
-
-        print(f"[PIPELINE DEBUG] Parallel Tasks Finished in {max(timing_metrics.values()):.2f}s!")
+        print(f"[PIPELINE DEBUG] Sequential Tasks Finished!")
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
 
@@ -413,7 +397,24 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
         if not is_quick_mode:
             try:
                 from services.screen_detector import detect_screens
-                screen_res = detect_screens(image_path)
+                screen_res = detect_screens(img_scaled)
+                # Scale coordinates back to original image size
+                for scr in screen_res.get("screens", []):
+                    if scr.get("bbox"):
+                        scr["bbox"] = [
+                            int(scr["bbox"][0] / scale),
+                            int(scr["bbox"][1] / scale),
+                            int(scr["bbox"][2] / scale),
+                            int(scr["bbox"][3] / scale)
+                        ]
+                for item in screen_res.get("sensitiveItems", []):
+                    if item.get("bbox"):
+                        item["bbox"] = [
+                            int(item["bbox"][0] / scale),
+                            int(item["bbox"][1] / scale),
+                            int(item["bbox"][2] / scale),
+                            int(item["bbox"][3] / scale)
+                        ]
                 ocr_res["screenDetection"] = screen_res
             except Exception as screen_err:
                 import traceback
@@ -694,3 +695,13 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
         logger.error(f"Error during async analysis for scan {scan_id}: {e}", exc_info=True)
         update_scan_status(app, scan_id, "failed", 100, "Analysis failed", error_msg=str(e))
         raise e
+    finally:
+        # Release heavy image arrays and trigger garbage collection immediately
+        if 'img' in locals():
+            del img
+        if 'img_scaled' in locals():
+            del img_scaled
+        if 'variants' in locals():
+            del variants
+        import gc
+        gc.collect()

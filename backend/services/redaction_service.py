@@ -432,3 +432,9 @@ def run_async_redaction(app, scan_id, job_mgr, mode="blur"):
         logger.error(f"[REDACTION] Error for scan {scan_id}: {e}", exc_info=True)
         update_redaction_status(app, scan_id, "failed", 100, "Failed", error_msg=str(e))
         raise e
+    finally:
+        # Release loaded image buffer and force garbage collection
+        if 'img' in locals():
+            del img
+        import gc
+        gc.collect()

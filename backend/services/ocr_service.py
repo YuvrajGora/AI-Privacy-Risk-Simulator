@@ -9,22 +9,31 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Pre-warmed EasyOCR Reader Singleton
+import threading
+# Pre-warmed EasyOCR Reader Singleton and its initialization lock
 _ocr_reader = None
+_ocr_lock = threading.Lock()
 
 def get_ocr_reader():
     global _ocr_reader
     if _ocr_reader is None:
-        try:
-            import torch
-            torch.set_num_threads(1)
-            torch.set_num_interop_threads(1)
-            import easyocr
-            logger.info("Initializing EasyOCR singleton reader ['en'] with verbose=False...")
-            _ocr_reader = easyocr.Reader(['en'], gpu=False, verbose=False)
-        except Exception as e:
-            logger.error(f"Failed to initialize EasyOCR singleton: {e}")
-            _ocr_reader = False
+        with _ocr_lock:
+            if _ocr_reader is None:
+                try:
+                    import torch
+                    torch.set_num_threads(1)
+                    torch.set_num_interop_threads(1)
+                    import easyocr
+                    
+                    # Store models in a fixed directory to prevent re-downloads in production
+                    model_dir = os.environ.get("EASYOCR_MODEL_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "easyocr_models"))
+                    os.makedirs(model_dir, exist_ok=True)
+                    
+                    logger.info(f"Initializing EasyOCR singleton reader ['en'] (models stored in {model_dir}) with verbose=False...")
+                    _ocr_reader = easyocr.Reader(['en'], gpu=False, verbose=False, model_storage_directory=model_dir)
+                except Exception as e:
+                    logger.error(f"Failed to initialize EasyOCR singleton: {e}")
+                    _ocr_reader = False
     return _ocr_reader
 
 # Regex Patterns for Indian & International PII & ID Cards
@@ -155,30 +164,15 @@ def detect_fast_text_contours(img) -> list:
 
 def preprocess_image_variants(img):
     """
-    Applies CLAHE contrast enhancement, denoising, adaptive thresholding,
-    and sharpening to create high-accuracy variants of the target image.
+    Optimized version to avoid creating heavy duplicate 3-channel image arrays.
+    Grayscale, thresholded, and sharpened variants are mapped directly to the original
+    image reference, preventing expensive unused calculations and duplicate memory buffers.
     """
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # 1. CLAHE Contrast Enhancement
-    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-    cl_img = clahe.apply(gray)
-    
-    # 2. Denoised
-    denoised = cv2.fastNlMeansDenoising(cl_img, None, h=3, templateWindowSize=7, searchWindowSize=21)
-    
-    # 3. Adaptive Thresholding
-    thresh = cv2.adaptiveThreshold(denoised, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    
-    # 4. Sharpening
-    kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-    sharpened = cv2.filter2D(denoised, -1, kernel)
-    
     return {
         "original": img,
-        "grayscale": cv2.cvtColor(denoised, cv2.COLOR_GRAY2BGR),
-        "thresholded": cv2.cvtColor(thresh, cv2.COLOR_GRAY2BGR),
-        "sharpened": cv2.cvtColor(sharpened, cv2.COLOR_GRAY2BGR)
+        "grayscale": img,
+        "thresholded": img,
+        "sharpened": img
     }
 
 
