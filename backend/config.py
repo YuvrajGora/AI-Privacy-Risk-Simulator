@@ -26,10 +26,14 @@ class Config:
     ALLOWED_MIME_TYPES = {"image/png", "image/jpeg", "image/pjpeg", "image/webp"}
 
     # Database configuration
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
+    db_url = os.environ.get(
         "DATABASE_URL", f"sqlite:///{os.path.join(BASE_DIR, 'privacy_simulator.db')}"
     )
+    if db_url and db_url.startswith("postgres://"):
+        db_url = db_url.replace("postgres://", "postgresql://", 1)
+    SQLALCHEMY_DATABASE_URI = db_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+
 
     # Gemini API Key
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
