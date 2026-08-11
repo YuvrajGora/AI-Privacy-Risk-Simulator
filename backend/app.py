@@ -150,6 +150,9 @@ def create_app(config_class=Config):
         except Exception as mig_err:
             logger.warning(f"DB Auto-migration warning: {mig_err}")
         logger.info("Database tables verified & initialized.")
+        from services.job_manager import cleanup_orphaned_scans
+        cleanup_orphaned_scans(app)
+
 
 
     # Start background cleanup thread

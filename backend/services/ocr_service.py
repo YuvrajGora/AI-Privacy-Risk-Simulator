@@ -9,6 +9,14 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+import os
+# Force PyTorch and underlying BLAS/OpenMP libraries to use single thread to prevent memory spikes & deadlocks
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 import threading
 # Pre-warmed EasyOCR Reader Singleton and its initialization lock
 _ocr_reader = None
@@ -35,6 +43,7 @@ def get_ocr_reader():
                     logger.error(f"Failed to initialize EasyOCR singleton: {e}")
                     _ocr_reader = False
     return _ocr_reader
+
 
 # Regex Patterns for Indian & International PII & ID Cards
 PHONE_PATTERN = re.compile(r'\b(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b|\b[6-9]\d{9}\b')
@@ -756,8 +765,11 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
                     beamWidth=1,
                     paragraph=False,
                     detail=1,
-                    low_text=0.25
+                    low_text=0.25,
+                    canvas_size=800,
+                    mag_ratio=1.0
                 )
+
                 
                 variant_blocks = []
                 for pts, text, prob in raw_crop_ocr:

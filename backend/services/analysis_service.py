@@ -324,31 +324,41 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
 
         # Execute stages sequentially to save thread scheduling memory and control peak memory usage
         if job_mgr and job_mgr.is_cancelled(scan_id): return
+        logger.info(f"[SCAN {scan_id}] [METADATA] START")
         metadata_res = _run_meta()
+        logger.info(f"[SCAN {scan_id}] [METADATA] END")
         update_scan_status(app, scan_id, "processing", 15, "Metadata Scan Complete")
         gc.collect()
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
+        logger.info(f"[SCAN {scan_id}] [FACE] START")
         face_res = _run_face()
+        logger.info(f"[SCAN {scan_id}] [FACE] END")
         update_scan_status(app, scan_id, "processing", 30, "Face Detection Complete")
         gc.collect()
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
+        logger.info(f"[SCAN {scan_id}] [QR] START")
         qr_res = _run_qr()
+        logger.info(f"[SCAN {scan_id}] [QR] END")
         update_scan_status(app, scan_id, "processing", 45, "QR Analysis Complete")
         gc.collect()
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
+        logger.info(f"[SCAN {scan_id}] [OCR] START")
         ocr_res = _run_ocr()
+        logger.info(f"[SCAN {scan_id}] [OCR] END")
         update_scan_status(app, scan_id, "processing", 65, "OCR Scan Complete")
         gc.collect()
 
-        print(f"[PIPELINE DEBUG] Sequential Core Scanners Finished!")
+        print(f"[PIPELINE DEBUG] Sequential Core Scanners Finished for Scan: {scan_id}")
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
 
 
+
         # ── Step 4.5: ID Card Candidate Validation & NMS ──────────────────────
+        logger.info(f"[SCAN {scan_id}] [ID_CARD] START")
         t0_id = time.time()
         t_start_id_str = datetime.utcnow().isoformat() + "Z"
         validated_id_cards = []
@@ -371,6 +381,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
             logger.error(f"[PIPELINE ERROR] ID Card validation failed: {e}")
             raise e
         finally:
+            logger.info(f"[SCAN {scan_id}] [ID_CARD] END")
             t_end_id = time.time()
             t_end_id_str = datetime.utcnow().isoformat() + "Z"
             dur_id = round(t_end_id - t0_id, 4)
@@ -383,7 +394,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
             
             id_log = (
                 "==================================================\n"
-                "GOVERNMENT ID DETECTION\n"
+                f"GOVERNMENT ID DETECTION [SCAN {scan_id}]\n"
                 f"Started: {t_start_id_str}\n"
                 f"Finished: {t_end_id_str}\n"
                 f"Execution Time: {dur_id} seconds\n"
@@ -403,6 +414,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
         t_start_scr_str = datetime.utcnow().isoformat() + "Z"
         err_scr = None
         if not is_quick_mode:
+            logger.info(f"[SCAN {scan_id}] [SCREEN] START")
             try:
                 from services.screen_detector import detect_screens
                 screen_res = detect_screens(img_scaled)
@@ -432,6 +444,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
                 ocr_res["screenDetection"] = {"screenCount": 0, "screens": [], "sensitiveContentFound": False, "sensitiveItems": []}
                 raise screen_err
             finally:
+                logger.info(f"[SCAN {scan_id}] [SCREEN] END")
                 t_end_scr = time.time()
                 t_end_scr_str = datetime.utcnow().isoformat() + "Z"
                 dur_scr = round(t_end_scr - t0_scr, 4)
@@ -439,7 +452,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
                 
                 screen_log = (
                     "==================================================\n"
-                    "SCREEN DETECTION\n"
+                    f"SCREEN DETECTION [SCAN {scan_id}]\n"
                     f"Started: {t_start_scr_str}\n"
                     f"Finished: {t_end_scr_str}\n"
                     f"Execution Time: {dur_scr} seconds\n"
@@ -461,7 +474,8 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
         update_scan_status(app, scan_id, "processing", 85, "Evaluating Privacy Risk Score")
-        print("\n[PIPELINE DEBUG] Step 5: Privacy Classifier & Scoring Started...")
+        logger.info(f"[SCAN {scan_id}] [SCORING] START")
+        print(f"\n[PIPELINE DEBUG] Step 5: Privacy Classifier & Scoring Started for Scan: {scan_id}")
 
         metadata_res["image_path"] = image_path
         
@@ -478,6 +492,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
             logger.error(f"[PIPELINE ERROR] Risk Scoring failed: {e}")
             raise e
         finally:
+            logger.info(f"[SCAN {scan_id}] [SCORING] END")
             t_end_score = time.time()
             t_end_score_str = datetime.utcnow().isoformat() + "Z"
             dur_score = round(t_end_score - t0_score, 4)
@@ -490,7 +505,7 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
             
             score_log = (
                 "==================================================\n"
-                "RISK SCORING\n"
+                f"RISK SCORING [SCAN {scan_id}]\n"
                 f"Started: {t_start_score_str}\n"
                 f"Finished: {t_end_score_str}\n"
                 f"Execution Time: {dur_score} seconds\n"
@@ -518,7 +533,9 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
         # ── Step 6: Gemini AI Advice Generation (with 10s timeout / quick mode skip) ─
         if job_mgr and job_mgr.is_cancelled(scan_id): return
         update_scan_status(app, scan_id, "processing", 95, "Generating AI Privacy Report")
+        logger.info(f"[SCAN {scan_id}] [GEMINI] START")
         t0_gem = time.time()
+
         t_start_gem_str = datetime.utcnow().isoformat() + "Z"
 
         if is_quick_mode and score_res["privacyScore"] in (0, 100):
@@ -552,10 +569,13 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
                 privacy_score=score_res["privacyScore"],
                 risk_level=score_res["riskLevel"]
             )
+        logger.info(f"[SCAN {scan_id}] [GEMINI] END")
         timing_metrics["geminiTime"] = round(time.time() - t0_gem, 3)
 
         # ── Step 7: Generate Annotated Overlay Image ──────────────────────────
+        logger.info(f"[SCAN {scan_id}] [FINALIZATION] START")
         analysis_details = {
+
             "ocrText": [
                 {"text": block["text"], "bbox": block.get("bbox")}
                 for block in ocr_res.get("textBlocks", [])
@@ -679,7 +699,9 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
             print(f"[ERROR TRACEBACK] Database save failed:\n{err_db}")
             raise e
         finally:
+            logger.info(f"[SCAN {scan_id}] [FINALIZATION] END")
             t_end_db = time.time()
+
             dur_db = round(t_end_db - t0_db, 4)
             db_log = (
                 "==================================================\n"

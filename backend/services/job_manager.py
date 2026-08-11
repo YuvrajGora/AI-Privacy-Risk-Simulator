@@ -70,11 +70,14 @@ class JobManager:
                     if self.is_cancelled(scan_id):
                         self._update_scan_status(app, scan_id, "cancelled")
                     else:
-                        self._update_scan_status(app, scan_id, "completed")
+                        # Check current DB status to ensure we don't overwrite if task already set status
+                        scan = Scan.query.filter_by(scan_id=scan_id).first()
+                        if scan and scan.status not in ["completed", "failed", "cancelled"]:
+                            self._update_scan_status(app, scan_id, "completed")
                         
-                except Exception as e:
-                    logger.error(f"Job {scan_id} failed: {e}\n{traceback.format_exc()}")
-                    self._update_scan_status(app, scan_id, "failed", str(e))
+                except BaseException as e:
+                    logger.error(f"[SCAN {scan_id}] Job worker failed: {e}\n{traceback.format_exc()}")
+                    self._update_scan_status(app, scan_id, "failed", f"Worker execution error: {str(e)}")
                 finally:
                     with self.lock:
                         if scan_id in self.futures:
@@ -88,6 +91,25 @@ class JobManager:
         
         return True
 
+def cleanup_orphaned_scans(app):
+    """
+    On application startup, identify any scans left in 'processing' or 'queued' status
+    from a previous terminated/restarted worker process and mark them as failed.
+    """
+    try:
+        with app.app_context():
+            stale_scans = Scan.query.filter(Scan.status.in_(["processing", "queued"])).all()
+            if stale_scans:
+                logger.warning(f"[STARTUP RECOVERY] Found {len(stale_scans)} orphaned scans in database. Resetting status to failed...")
+                for s in stale_scans:
+                    s.status = "failed"
+                    s.completed_at = datetime.utcnow()
+                    s.error_message = "Scan worker process was restarted or terminated during analysis"
+                db.session.commit()
+    except Exception as e:
+        logger.error(f"Failed to cleanup orphaned scans on startup: {e}")
+
 # Global singleton
 job_manager = JobManager(max_workers=getattr(Config, 'MAX_CONCURRENT_SCANS', 1))
+
 
