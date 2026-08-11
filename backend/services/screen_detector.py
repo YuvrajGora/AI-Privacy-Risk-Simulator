@@ -155,16 +155,19 @@ def detect_screens(image_path_or_img) -> dict:
             # Run OCR on ROI
             roi_img = img[y:y+h, x:x+w]
             screen_text = ""
-            if reader and reader is not False:
-                try:
-                    # Upscale if too small
-                    if w < 180:
-                        scale = 180.0 / w
-                        roi_img = cv2.resize(roi_img, None, fx=scale, fy=scale)
-                    raw_text = reader.readtext(roi_img, detail=0, paragraph=True)
-                    screen_text = " ".join(raw_text).strip()
-                except Exception as e:
-                    logger.debug(f"ROI OCR failed: {e}")
+            try:
+                import pytesseract
+                from services.ocr_service import _configure_tesseract
+                _configure_tesseract()
+                # Upscale if too small
+                if w < 180:
+                    scale = 180.0 / w
+                    roi_img = cv2.resize(roi_img, None, fx=scale, fy=scale)
+                roi_rgb = cv2.cvtColor(roi_img, cv2.COLOR_BGR2RGB)
+                screen_text = pytesseract.image_to_string(roi_rgb).strip()
+            except Exception as e:
+                logger.debug(f"ROI OCR failed: {e}")
+
 
             # Signal 2: Displayed Text
             if len(screen_text) >= 6 and not IGNORE_OCR_KEYWORDS.search(screen_text):

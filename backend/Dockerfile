@@ -1,10 +1,13 @@
 FROM python:3.11-slim
 
-# Install system dependencies required for OpenCV, pyzbar, and other libraries
+# Install system dependencies required for OpenCV, pyzbar, Tesseract OCR, and other libraries
 RUN apt-get update && apt-get install -y \
     libgl1 \
     libglib2.0-0 \
     libzbar0 \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    libtesseract-dev \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -16,8 +19,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Pre-download models to a fixed directory in the container
-RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False, model_storage_directory='/app/easyocr_models')"
 
 # Copy the rest of the application
 COPY . .

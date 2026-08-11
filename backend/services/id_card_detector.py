@@ -154,14 +154,18 @@ def validate_card_candidate(img, cand, text_blocks, face_locations, qr_codes, re
         if (crop_x <= text_cx <= crop_x + crop_w) and (crop_y <= text_cy <= crop_y + crop_h):
             roi_texts.append(tb.get("text", ""))
 
-    if not roi_texts and reader and reader is not False and roi.size > 0:
+    if not roi_texts and roi.size > 0:
         try:
-            roi_results = reader.readtext(roi)
-            for pts, text, prob in roi_results:
-                if prob > 0.10 and text.strip():
-                    roi_texts.append(text.strip())
+            import pytesseract
+            from services.ocr_service import _configure_tesseract
+            _configure_tesseract()
+            roi_rgb = cv2.cvtColor(roi, cv2.COLOR_BGR2RGB)
+            raw_text = pytesseract.image_to_string(roi_rgb)
+            if raw_text.strip():
+                roi_texts.extend(raw_text.strip().split())
         except Exception as e:
             logger.debug(f"[ID DETECTOR] ROI crop OCR error: {e}")
+
 
     # Require multiple text fields
     if len(roi_texts) < 2:

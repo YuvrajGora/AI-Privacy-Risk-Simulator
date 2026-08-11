@@ -9,40 +9,25 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
-import os
-# Force PyTorch and underlying BLAS/OpenMP libraries to use single thread to prevent memory spikes & deadlocks
-os.environ["OMP_NUM_THREADS"] = "1"
-os.environ["MKL_NUM_THREADS"] = "1"
-os.environ["OPENBLAS_NUM_THREADS"] = "1"
-os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
-os.environ["NUMEXPR_NUM_THREADS"] = "1"
+import shutil
+import pytesseract
 
-import threading
-# Pre-warmed EasyOCR Reader Singleton and its initialization lock
-_ocr_reader = None
-_ocr_lock = threading.Lock()
+def _configure_tesseract():
+    tesseract_cmd = shutil.which("tesseract")
+    if not tesseract_cmd:
+        if os.path.exists(r"C:\Program Files\Tesseract-OCR\tesseract.exe"):
+            tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+        elif os.path.exists(r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"):
+            tesseract_cmd = r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe"
+    if tesseract_cmd:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_cmd
+    return tesseract_cmd
 
 def get_ocr_reader():
-    global _ocr_reader
-    if _ocr_reader is None:
-        with _ocr_lock:
-            if _ocr_reader is None:
-                try:
-                    import torch
-                    torch.set_num_threads(1)
-                    torch.set_num_interop_threads(1)
-                    import easyocr
-                    
-                    # Store models in a fixed directory to prevent re-downloads in production
-                    model_dir = os.environ.get("EASYOCR_MODEL_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "easyocr_models"))
-                    os.makedirs(model_dir, exist_ok=True)
-                    
-                    logger.info(f"Initializing EasyOCR singleton reader ['en'] (models stored in {model_dir}) with verbose=False...")
-                    _ocr_reader = easyocr.Reader(['en'], gpu=False, verbose=False, model_storage_directory=model_dir)
-                except Exception as e:
-                    logger.error(f"Failed to initialize EasyOCR singleton: {e}")
-                    _ocr_reader = False
-    return _ocr_reader
+    """Backwards-compatible helper returning True if Tesseract OCR binary is configured."""
+    cmd = _configure_tesseract()
+    return bool(cmd)
+
 
 
 # Regex Patterns for Indian & International PII & ID Cards
@@ -735,10 +720,11 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
     # Configured threshold for high-confidence text
     OCR_CONFIDENCE_THRESHOLD = 0.35
 
-    if reader and reader is not False and unique_proposals:
+    if unique_proposals:
         t0_ocr = time.time()
+        _configure_tesseract()
 
-        # Define parallel crop scanner worker
+        # Define Tesseract crop scanner worker
         def ocr_crop_worker(item):
             from datetime import datetime
             idx, box = item
@@ -753,122 +739,47 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
 
             local_blocks = []
             try:
-                # 1. Run "original" variant
-                t_start = time.time()
-                t_start_str = datetime.utcnow().isoformat() + "Z"
                 crop_orig = variants["original"][ry:ry+rh, rx:rx+rw]
-                
-                raw_crop_ocr = reader.readtext(
-                    crop_orig,
-                    decoder='greedy',
-                    beamWidth=1,
-                    paragraph=False,
-                    detail=1,
-                    low_text=0.25,
-                    canvas_size=800,
-                    mag_ratio=1.0
-                )
+                crop_rgb = cv2.cvtColor(crop_orig, cv2.COLOR_BGR2RGB)
+                data = pytesseract.image_to_data(crop_rgb, output_type=pytesseract.Output.DICT)
+                lines = {}
+                for i in range(len(data['text'])):
+                    text = data['text'][i].strip()
+                    conf = float(data['conf'][i])
+                    if text and conf > 0:
+                        line_key = (data['block_num'][i], data['par_num'][i], data['line_num'][i])
+                        x, y, w, h = data['left'][i], data['top'][i], data['width'][i], data['height'][i]
+                        if line_key not in lines:
+                            lines[line_key] = {
+                                "words": [text],
+                                "confs": [conf / 100.0],
+                                "bbox": [x, y, x + w, y + h]
+                            }
+                        else:
+                            lines[line_key]["words"].append(text)
+                            lines[line_key]["confs"].append(conf / 100.0)
+                            lines[line_key]["bbox"][0] = min(lines[line_key]["bbox"][0], x)
+                            lines[line_key]["bbox"][1] = min(lines[line_key]["bbox"][1], y)
+                            lines[line_key]["bbox"][2] = max(lines[line_key]["bbox"][2], x + w)
+                            lines[line_key]["bbox"][3] = max(lines[line_key]["bbox"][3], y + h)
 
-                
-                variant_blocks = []
-                for pts, text, prob in raw_crop_ocr:
-                    if prob > 0.02 and text.strip():
-                        xs = [p[0] for p in pts]
-                        ys = [p[1] for p in pts]
-                        xmin, xmax = min(xs), max(xs)
-                        ymin, ymax = min(ys), max(ys)
-                        abs_x = rx + xmin
-                        abs_y = ry + ymin
-                        abs_w = xmax - xmin
-                        abs_h = ymax - ymin
-                        variant_blocks.append({
-                            "text": text.strip(),
-                            "confidence": round(float(prob), 2),
-                            "bbox": [abs_x, abs_y, abs_w, abs_h]
-                        })
-                
-                t_end = time.time()
-                t_end_str = datetime.utcnow().isoformat() + "Z"
-                dur_orig = round(t_end - t_start, 4)
-                
-                crop_log = (
-                    "--------------------------------------------------\n"
-                    f"OCR CROP SCAN\n"
-                    f"Crop Number: {idx + 1}\n"
-                    f"Variant: original\n"
-                    f"Image Dimensions: {crop_orig.shape[:2]} (scaled: {w_scaled}x{h_scaled})\n"
-                    f"Start Time: {t_start_str}\n"
-                    f"End Time: {t_end_str}\n"
-                    f"Execution Time: {dur_orig} seconds\n"
-                    f"Text Blocks Returned: {len(variant_blocks)}\n"
-                    f"Text Details: {[b['text'] for b in variant_blocks]}\n"
-                    "--------------------------------------------------"
-                )
-                # print(crop_log)
-                # logger.info(crop_log)
-                local_blocks.extend(variant_blocks)
-
-                # Check if we can skip the sharpened pass
-                avg_conf = np.mean([b["confidence"] for b in variant_blocks]) if variant_blocks else 0.0
-                skip_sharpened = len(variant_blocks) > 0 and avg_conf >= OCR_CONFIDENCE_THRESHOLD
-
-                if False:
-                    # 2. Run "sharpened" variant
-                    t_start = time.time()
-                    t_start_str = datetime.utcnow().isoformat() + "Z"
-                    crop_sharp = variants["sharpened"][ry:ry+rh, rx:rx+rw]
-                    
-                    raw_crop_ocr_sharp = reader.readtext(
-                        crop_sharp,
-                        decoder='greedy',
-                        beamWidth=1,
-                        paragraph=False,
-                        detail=1,
-                        low_text=0.25
-                    )
-                    
-                    variant_blocks_sharp = []
-                    for pts, text, prob in raw_crop_ocr_sharp:
-                        if prob > 0.02 and text.strip():
-                            xs = [p[0] for p in pts]
-                            ys = [p[1] for p in pts]
-                            xmin, xmax = min(xs), max(xs)
-                            ymin, ymax = min(ys), max(ys)
-                            abs_x = rx + xmin
-                            abs_y = ry + ymin
-                            abs_w = xmax - xmin
-                            abs_h = ymax - ymin
-                            variant_blocks_sharp.append({
-                                "text": text.strip(),
-                                "confidence": round(float(prob), 2),
-                                "bbox": [abs_x, abs_y, abs_w, abs_h]
-                            })
-                    
-                    t_end = time.time()
-                    t_end_str = datetime.utcnow().isoformat() + "Z"
-                    dur_sharp = round(t_end - t_start, 4)
-                    
-                    crop_log_sharp = (
-                        "--------------------------------------------------\n"
-                        f"OCR CROP SCAN\n"
-                        f"Crop Number: {idx + 1}\n"
-                        f"Variant: sharpened\n"
-                        f"Image Dimensions: {crop_sharp.shape[:2]} (scaled: {w_scaled}x{h_scaled})\n"
-                        f"Start Time: {t_start_str}\n"
-                        f"End Time: {t_end_str}\n"
-                        f"Execution Time: {dur_sharp} seconds\n"
-                        f"Text Blocks Returned: {len(variant_blocks_sharp)}\n"
-                        f"Text Details: {[b['text'] for b in variant_blocks_sharp]}\n"
-                        "--------------------------------------------------"
-                    )
-                    # print(crop_log_sharp)
-                    # logger.info(crop_log_sharp)
-                    local_blocks.extend(variant_blocks_sharp)
-                elif skip_sharpened:
-                    logger.info(f"Skipping sharpened OCR pass: original avg confidence ({avg_conf:.2f}) >= threshold ({OCR_CONFIDENCE_THRESHOLD})")
+                for line_key, ldata in lines.items():
+                    full_line_text = " ".join(ldata["words"])
+                    avg_conf = round(float(np.mean(ldata["confs"])), 2)
+                    bx1, by1, bx2, by2 = ldata["bbox"]
+                    abs_x = rx + bx1
+                    abs_y = ry + by1
+                    abs_w = bx2 - bx1
+                    abs_h = by2 - by1
+                    local_blocks.append({
+                        "text": full_line_text,
+                        "confidence": avg_conf,
+                        "bbox": [abs_x, abs_y, abs_w, abs_h]
+                    })
             except Exception as e:
-                logger.debug(f"[OCR WORKER] Crop at {box} failed: {e}")
+                logger.warning(f"[OCR WORKER] Tesseract crop scan at {box} failed: {e}")
             return local_blocks
+
 
     # Execute OCR crop workers sequentially without thread pool overhead
     for idx, box in enumerate(unique_proposals[:5]):

@@ -365,15 +365,14 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
         err_id = None
         try:
             from services.id_card_detector import detect_and_validate_id_cards
-            from services.ocr_service import get_ocr_reader
 
             validated_id_cards = detect_and_validate_id_cards(
                 image_path_or_img=img_scaled, # Share the scaled cv2 image matrix
                 text_blocks=ocr_res.get("textBlocks", []),
                 face_locations=face_res.get("faceLocations", []),
-                qr_codes=qr_res.get("decodedQRCodes", []),
-                reader=get_ocr_reader()
+                qr_codes=qr_res.get("decodedQRCodes", [])
             )
+
         except Exception as e:
             import traceback
             err_id = traceback.format_exc()
