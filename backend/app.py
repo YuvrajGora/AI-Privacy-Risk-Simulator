@@ -153,6 +153,16 @@ def create_app(config_class=Config):
         from services.job_manager import cleanup_orphaned_scans
         cleanup_orphaned_scans(app)
 
+        # Pre-warm EasyOCR singleton at startup when RAM usage is minimal
+        try:
+            from services.ocr_service import get_ocr_reader
+            logger.info("Pre-warming EasyOCR reader singleton at application startup...")
+            get_ocr_reader()
+            logger.info("EasyOCR reader singleton pre-warmed successfully.")
+        except Exception as ocr_init_err:
+            logger.warning(f"EasyOCR pre-warming warning: {ocr_init_err}")
+
+
 
 
     # Start background cleanup thread

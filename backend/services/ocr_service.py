@@ -725,7 +725,6 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
         logger.info("Fallback to Full Frame proposal included for OCR")
         primary_proposals.append([0, 0, w_scaled, h_scaled])
 
-        primary_proposals.append([0, 0, w_scaled, h_scaled])
 
     all_proposals = primary_proposals
     unique_proposals = merge_crop_proposals(all_proposals)
