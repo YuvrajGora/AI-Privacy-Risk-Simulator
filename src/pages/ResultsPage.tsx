@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { useScan } from '../hooks/useScan';
 import PrivacyGauge from '../components/common/PrivacyGauge';
-import scanService from '../services/scanService';
+import scanService, { resolveImageUrl } from '../services/scanService';
 
 const severityConfig: Record<string, { cls: string; dot: string; badge: string }> = {
   critical: { cls: 'border-error/40 bg-error-container/20', dot: 'bg-error', badge: 'badge-critical' },
@@ -119,9 +119,12 @@ export const ResultsPage: React.FC = () => {
   const sharingAdvice = currentReport.sharingAdvice;
 
   const isRedacted = currentReport.redactionStatus === 'completed' || !!currentReport.safeImage;
-  const safeImage = currentReport.safeImage || comparisonData?.safeImage;
-  const annotatedImage = currentReport.annotatedImage || comparisonData?.annotatedImage;
-  const originalImage = currentReport.originalImage || comparisonData?.originalImage;
+  const rawSafeImage = currentReport.safeImage || comparisonData?.safeImage;
+  const rawAnnotatedImage = currentReport.annotatedImage || comparisonData?.annotatedImage;
+  const rawOriginalImage = currentReport.originalImage || comparisonData?.originalImage;
+  const safeImage = resolveImageUrl(rawSafeImage);
+  const annotatedImage = resolveImageUrl(rawAnnotatedImage);
+  const originalImage = resolveImageUrl(rawOriginalImage);
   const originalScore = currentReport.originalScore ?? score;
   const safeScore = currentReport.safeScore ?? comparisonData?.safeScore ?? 98;
   const improvement = currentReport.scoreImprovement ?? comparisonData?.scoreImprovement ?? (safeScore - originalScore);
@@ -138,7 +141,8 @@ export const ResultsPage: React.FC = () => {
   };
 
   const handleDownloadSafeImage = () => {
-    const url = safeImage || `/api/v1/redacted-image/${activeScanId || currentReport.scanId}`;
+    const rawUrl = rawSafeImage || `/api/v1/redacted-image/${activeScanId || currentReport.scanId}`;
+    const url = resolveImageUrl(rawUrl);
     const a = document.createElement('a');
     a.href = url;
     a.download = `safe_sanitized_${currentReport.targetName || 'image'}.jpg`;

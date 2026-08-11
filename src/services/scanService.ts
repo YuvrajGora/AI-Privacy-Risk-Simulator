@@ -9,7 +9,31 @@ import {
   ComparisonResponse,
 } from '../types';
 
+/**
+ * Resolves a backend image URL.
+ * Converts relative paths starting with /api/v1/... to full absolute URLs if VITE_API_BASE_URL is set to a remote domain.
+ */
+export const resolveImageUrl = (url?: string | null): string => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  
+  const rawBaseUrl = import.meta.env.VITE_API_BASE_URL;
+  if (rawBaseUrl && (rawBaseUrl.startsWith('http://') || rawBaseUrl.startsWith('https://'))) {
+    const cleanBase = rawBaseUrl.replace(/\/+$/, '');
+    if (url.startsWith('/api/v1')) {
+      const origin = cleanBase.endsWith('/api/v1') ? cleanBase.slice(0, -7) : cleanBase;
+      return `${origin}${url}`;
+    }
+    const cleanPath = url.startsWith('/') ? url : `/${url}`;
+    return `${cleanBase}${cleanPath}`;
+  }
+  return url;
+};
+
 export const scanService = {
+
   /**
    * POST /upload
    * Sends image file & params to Flask backend
@@ -79,7 +103,7 @@ export const scanService = {
    * Returns full URL to download PDF report
    */
   getPdfExportUrl(scanId: string): string {
-    return `/api/v1/export/pdf/${scanId}`;
+    return resolveImageUrl(`/api/v1/export/pdf/${scanId}`);
   },
 
   /**

@@ -33,4 +33,4 @@ def get_redacted_image(scan_id):
     if not os.path.exists(image_path):
         return jsonify({"success": False, "error": "Redacted image file missing from server."}), 404
 
-    return send_file(image_path, mimetype="image/jpeg")
+    return send_file(image_path)

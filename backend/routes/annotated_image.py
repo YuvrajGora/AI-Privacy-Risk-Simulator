@@ -14,4 +14,4 @@ def get_annotated_image(scan_id):
     if not scan.annotated_path or not os.path.exists(scan.annotated_path):
         return jsonify({"success": False, "error": "Annotated image not found or not generated yet"}), 404
         
-    return send_file(scan.annotated_path, mimetype="image/jpeg")
+    return send_file(scan.annotated_path, mimetype="image/png")
