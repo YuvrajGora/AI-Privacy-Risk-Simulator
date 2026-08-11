@@ -173,8 +173,10 @@ def create_app(config_class=Config):
     def health_check():
         db_status = "connected"
         try:
-            db.session.execute(db.select(1))
-        except Exception:
+            with db.engine.connect() as conn:
+                conn.execute(db.text("SELECT 1"))
+        except Exception as e:
+            logger.warning(f"Health check DB warning: {e}")
             db_status = "disconnected"
 
         gemini_key = app.config.get("GEMINI_API_KEY", "")
@@ -185,6 +187,7 @@ def create_app(config_class=Config):
             "database": db_status,
             "gemini": gemini_status
         }), 200
+
 
     return app
 
