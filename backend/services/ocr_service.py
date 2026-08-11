@@ -713,26 +713,9 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
             logger.info(f"Priority 1: Small Government Document ROI found: {card_rois}. Keeping full-frame fallback.")
 
     if use_fallback:
-        screen_rois = []
-        try:
-            from services.screen_detector import detect_screens
-            screen_res = detect_screens(img_scaled)
-            for scr in screen_res.get("screens", []):
-                screen_rois.append(scr["bbox"])
-        except:
-            pass
+        logger.info("Fallback to Full Frame proposal included for OCR")
+        primary_proposals.append([0, 0, w_scaled, h_scaled])
 
-        if screen_rois:
-            primary_proposals.extend(screen_rois)
-            max_screen_area = max(bw * bh for bx, by, bw, bh in screen_rois)
-            if max_screen_area > (w_scaled * h_scaled * 0.70):
-                use_fallback = False
-                logger.info(f"Priority 2: Large Screen ROI found (area > 70%): {screen_rois}")
-            else:
-                logger.info(f"Priority 2: Small Screen ROI found: {screen_rois}. Keeping full-frame fallback.")
-
-    if use_fallback:
-        logger.info("Priority 3: Fallback to Full Frame included")
         primary_proposals.append([0, 0, w_scaled, h_scaled])
 
     all_proposals = primary_proposals
@@ -876,24 +859,14 @@ def perform_ocr(image_path_or_img, variants=None, quick_mode: bool = False) -> d
                 logger.debug(f"[OCR WORKER] Crop at {box} failed: {e}")
             return local_blocks
 
-        # Execute parallel OCR crop workers
-        futures = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-            for idx, box in enumerate(unique_proposals[:5]): # Limit to top 15 proposals max
-                futures.append(executor.submit(ocr_crop_worker, (idx, box)))
+    # Execute OCR crop workers sequentially without thread pool overhead
+    for idx, box in enumerate(unique_proposals[:5]):
+        try:
+            res = ocr_crop_worker((idx, box))
+            merge_ocr_blocks(merged_blocks, res, current_scale=scale)
+        except Exception as e:
+            logger.warning(f"Error scanning OCR crop {idx}: {e}")
 
-            # Hard timeout of 130.0 seconds max!
-            done, not_done = concurrent.futures.wait(futures, timeout=45.0)
-
-            for f in done:
-                try:
-                    res = f.result()
-                    merge_ocr_blocks(merged_blocks, res, current_scale=scale)
-                except Exception as e:
-                    logger.warning(f"Error reading thread future result: {e}")
-
-            if not_done:
-                logger.warning(f"[OCR TIMEOUT] Cancelled {len(not_done)} crop tasks exceeding 130s limit.")
 
         ocr_time = round(time.time() - t0_ocr, 3)
         avg_conf = round(np.mean([b["confidence"] for b in merged_blocks]), 2) if merged_blocks else 0.0

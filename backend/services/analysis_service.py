@@ -74,15 +74,16 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
         variants = preprocess_image_variants(img_scaled)
 
         # Mark initial status
-        update_scan_status(app, scan_id, "processing", 10, "Initializing Parallel Scanners...")
+        update_scan_status(app, scan_id, "processing", 10, "Initializing Sequential Scanners...")
 
-        # ── PARALLEL EXECUTION: Metadata, OCR, Face, QR ───────────────────────
-        print("\n[PIPELINE DEBUG] Launching Parallel Workers for (Metadata, OCR, Face, QR)...")
+        # ── SEQUENTIAL EXECUTION: Metadata → Face → QR → OCR → Screen → Gemini ─────────
+        print("\n[PIPELINE DEBUG] Launching Sequential Pipeline (Metadata -> Face -> QR -> OCR -> Screen -> Gemini)...")
 
         metadata_res = {}
         ocr_res = {}
         face_res = {}
         qr_res = {}
+
 
         def _run_meta():
             t_start_meta = time.time()
@@ -319,26 +320,33 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
                 logger.info(qr_log)
             return res
 
+        import gc
+
         # Execute stages sequentially to save thread scheduling memory and control peak memory usage
         if job_mgr and job_mgr.is_cancelled(scan_id): return
         metadata_res = _run_meta()
-        update_scan_status(app, scan_id, "processing", 20, "Metadata Scan Complete")
+        update_scan_status(app, scan_id, "processing", 15, "Metadata Scan Complete")
+        gc.collect()
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
         face_res = _run_face()
-        update_scan_status(app, scan_id, "processing", 40, "Face Detection Complete")
+        update_scan_status(app, scan_id, "processing", 30, "Face Detection Complete")
+        gc.collect()
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
         qr_res = _run_qr()
-        update_scan_status(app, scan_id, "processing", 60, "QR Analysis Complete")
+        update_scan_status(app, scan_id, "processing", 45, "QR Analysis Complete")
+        gc.collect()
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
         ocr_res = _run_ocr()
-        update_scan_status(app, scan_id, "processing", 80, "OCR Scan Complete")
+        update_scan_status(app, scan_id, "processing", 65, "OCR Scan Complete")
+        gc.collect()
 
-        print(f"[PIPELINE DEBUG] Sequential Tasks Finished!")
+        print(f"[PIPELINE DEBUG] Sequential Core Scanners Finished!")
 
         if job_mgr and job_mgr.is_cancelled(scan_id): return
+
 
         # ── Step 4.5: ID Card Candidate Validation & NMS ──────────────────────
         t0_id = time.time()
@@ -446,7 +454,11 @@ def run_async_analysis(app, scan_id: str, job_mgr, image_path: str, target_name:
         else:
             ocr_res["screenDetection"] = {"screenCount": 0, "screens": [], "sensitiveContentFound": False, "sensitiveItems": []}
 
+        update_scan_status(app, scan_id, "processing", 75, "Screen Detection Complete")
+        gc.collect()
+
         # ── Step 5: Privacy Scoring & Threat Generation ───────────────────────
+
         if job_mgr and job_mgr.is_cancelled(scan_id): return
         update_scan_status(app, scan_id, "processing", 85, "Evaluating Privacy Risk Score")
         print("\n[PIPELINE DEBUG] Step 5: Privacy Classifier & Scoring Started...")

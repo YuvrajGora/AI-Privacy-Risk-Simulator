@@ -11,11 +11,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 class JobManager:
-    def __init__(self, max_workers=2):
+    def __init__(self, max_workers=1):
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self.futures = {}  # Map scan_id to Future
         self.cancelled_scans = set()
         self.lock = threading.Lock()
+
 
     def _update_scan_status(self, app, scan_id, status, error_message=None):
         with app.app_context():
@@ -88,4 +89,5 @@ class JobManager:
         return True
 
 # Global singleton
-job_manager = JobManager(max_workers=Config.MAX_CONCURRENT_SCANS if hasattr(Config, 'MAX_CONCURRENT_SCANS') else 2)
+job_manager = JobManager(max_workers=getattr(Config, 'MAX_CONCURRENT_SCANS', 1))
+
